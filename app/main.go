@@ -90,8 +90,16 @@ func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
 
+	messg := resp.Choices[0].Message
+	if len(messg.ToolCalls) == 0 {
+		panic("No tool calls in response")
+	}
+	if messg.ToolCalls[0].Function.Arguments == "" {
+		panic("No arguments in tool call")
+	}
 	//name := resp.Choices[0].Message.ToolCalls[0].Function.Name
-	args := resp.Choices[0].Message.ToolCalls[0].Function.Arguments
+
+	args := messg.ToolCalls[0].Function.Arguments
 
 	var readArgs ReadArgs
 
