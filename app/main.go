@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/samiyonas/build-your-own-claude-code/llmtools/tools_funcs"
+	"github.com/samiyonas/build-your-own-claude-code/app/llmtools"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -15,9 +15,9 @@ import (
 type ToolFunc func(args string) (string, error)
 
 var toolFuncMap = map[string]ToolFunc{
-	"Read":  tools_funcs.ReadTool,
-	"Write": tools_funcs.WriteTool,
-	"Bash":  tools_funcs.BashTool,
+	"Read":  llmtools.ReadTool,
+	"Write": llmtools.WriteTool,
+	"Bash":  llmtools.BashTool,
 }
 
 func main() {
