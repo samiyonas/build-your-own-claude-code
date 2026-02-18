@@ -106,6 +106,5 @@ func main() {
 	}
 
 	fmt.Println(content)
-
-	fmt.Print(resp.Choices[0].Message.Content)
+	//fmt.Print(resp.Choices[0].Message.Content)
 }
