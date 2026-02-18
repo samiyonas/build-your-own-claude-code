@@ -2,15 +2,30 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
 
+func Read(filePath string) (string, error) {
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(file), nil
+}
+
 func main() {
+	type ReadArgs struct {
+		FilePath string `json:"file_path"`
+	}
+
 	var prompt string
 	flag.StringVar(&prompt, "p", "", "Prompt to send to LLM")
 	flag.Parse()
@@ -75,6 +90,22 @@ func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
 
-	// TODO: Uncomment the line below to pass the first stage
+	//name := resp.Choices[0].Message.ToolCalls[0].Function.Name
+	args := resp.Choices[0].Message.ToolCalls[0].Function.Arguments
+
+	var readArgs ReadArgs
+
+	err = json.Unmarshal([]byte(args), &readArgs)
+	if err != nil {
+		log.Fatal("Error parsing arguments: ", err)
+	}
+
+	content, err := Read(readArgs.FilePath)
+	if err != nil {
+		log.Fatal("Error reading file: ", err)
+	}
+
+	fmt.Println(content)
+
 	fmt.Print(resp.Choices[0].Message.Content)
 }
