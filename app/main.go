@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -62,6 +63,16 @@ func Write(filePath string, content string) error {
 	return nil
 }
 
+func Bash(command string) (string, error) {
+	cmd := exec.Command("bash", "-c", command)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("error executing command: %v, output: %s", err, string(output))
+	}
+
+	return string(output), nil
+}
+
 func ReadTool(args string) (string, error) {
 	var readArgs ReadArgs
 	err := json.Unmarshal([]byte(args), &readArgs)
@@ -92,11 +103,27 @@ func WriteTool(args string) (string, error) {
 	return "File written successfully", nil
 }
 
+func BashTool(args string) (string, error) {
+	var bashArgs BashArgs
+	err := json.Unmarshal([]byte(args), &bashArgs)
+	if err != nil {
+		return "", fmt.Errorf("error parsing arguments: %v", err)
+	}
+
+	output, err := Bash(bashArgs.Command)
+	if err != nil {
+		return "", fmt.Errorf("error executing bash command: %v", err)
+	}
+
+	return output, nil
+}
+
 type ToolFunc func(args string) (string, error)
 
 var toolFuncMap = map[string]ToolFunc{
 	"Read":  ReadTool,
 	"Write": WriteTool,
+	"Bash":  BashTool,
 }
 
 /*
@@ -204,6 +231,10 @@ type WriteArgs struct {
 	Content  string `json:"content"`
 }
 
+type BashArgs struct {
+	Command string `json:"command"`
+}
+
 func main() {
 
 	var prompt string
@@ -271,6 +302,24 @@ func main() {
 							},
 						},
 						"required": []string{"file_path", "content"},
+					},
+				},
+			},
+		},
+		{
+			OfFunction: &openai.ChatCompletionFunctionToolParam{
+				Function: openai.FunctionDefinitionParam{
+					Name:        "Bash",
+					Description: openai.String("Execute a bash command and return the output. The command will not have access to any files and will be guaranteed to finish executing within 10 seconds."),
+					Parameters: openai.FunctionParameters{
+						"type": "object",
+						"properties": map[string]any{
+							"command": map[string]any{
+								"type":        "string",
+								"description": "The command to execute",
+							},
+						},
+						"required": []string{"command"},
 					},
 				},
 			},
