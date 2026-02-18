@@ -92,10 +92,8 @@ func main() {
 
 	messg := resp.Choices[0].Message
 	if len(messg.ToolCalls) == 0 {
-		panic("No tool calls in response")
-	}
-	if messg.ToolCalls[0].Function.Arguments == "" {
-		panic("No arguments in tool call")
+		fmt.Println(messg.Content)
+		return
 	}
 	//name := resp.Choices[0].Message.ToolCalls[0].Function.Name
 
