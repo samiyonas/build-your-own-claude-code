@@ -1,11 +1,8 @@
-module github.com/codecrafters-io/claude-code-starter-go
+module github.com/samiyonas/build-your-own-claude-code
 
 go 1.25
 
-require (
-	github.com/openai/openai-go v1.12.0
-	github.com/openai/openai-go/v3 v3.16.0
-)
+require github.com/openai/openai-go/v3 v3.16.0
 
 require (
 	github.com/tidwall/gjson v1.18.0 // indirect
