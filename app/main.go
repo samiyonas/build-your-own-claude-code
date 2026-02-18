@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +40,63 @@ func Read(filePath string) (string, error) {
 	}
 
 	return string(file), nil
+}
+
+func Write(filePath string, content string) error {
+	filePath = strings.TrimPrefix(filePath, "/")
+
+	clean := filepath.Clean(filePath)
+	if strings.HasPrefix(clean, "..") {
+		return fmt.Errorf("invalid file path")
+	}
+
+	if strings.Contains(filePath, "..") {
+		return fmt.Errorf("invalid file path")
+	}
+
+	err := os.WriteFile(clean, []byte(content), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ReadTool(args string) (string, error) {
+	var readArgs ReadArgs
+	err := json.Unmarshal([]byte(args), &readArgs)
+	if err != nil {
+		return "", fmt.Errorf("error parsing arguments: %v", err)
+	}
+
+	content, err := Read(readArgs.FilePath)
+	if err != nil {
+		return "", fmt.Errorf("error reading file: %v", err)
+	}
+
+	return content, nil
+}
+
+func WriteTool(args string) (string, error) {
+	var writeArgs WriteArgs
+	err := json.Unmarshal([]byte(args), &writeArgs)
+	if err != nil {
+		return "", fmt.Errorf("error parsing arguments: %v", err)
+	}
+
+	err = Write(writeArgs.FilePath, writeArgs.Content)
+	if err != nil {
+		return "", fmt.Errorf("error writing file: %v", err)
+	}
+
+	return "File written successfully", nil
+}
+
+type ToolFunc func(args string) (string, error)
+
+var toolFuncMap = map[string]ToolFunc{
+	"Read":  ReadTool,
+	"Write": WriteTool,
 }
 
 /*
@@ -139,10 +195,16 @@ func main() {
 }
 */
 
+type ReadArgs struct {
+	FilePath string `json:"file_path"`
+}
+
+type WriteArgs struct {
+	FilePath string `json:"file_path"`
+	Content  string `json:"content"`
+}
+
 func main() {
-	type ReadArgs struct {
-		FilePath string `json:"file_path"`
-	}
 
 	var prompt string
 	flag.StringVar(&prompt, "p", "", "Prompt to send to LLM")
@@ -191,6 +253,28 @@ func main() {
 				},
 			},
 		},
+		{
+			OfFunction: &openai.ChatCompletionFunctionToolParam{
+				Function: openai.FunctionDefinitionParam{
+					Name:        "Write",
+					Description: openai.String("Write content to a file"),
+					Parameters: openai.FunctionParameters{
+						"type": "object",
+						"properties": map[string]any{
+							"file_path": map[string]any{
+								"type":        "string",
+								"description": "The path to the file to write.",
+							},
+							"content": map[string]any{
+								"type":        "string",
+								"description": "The content to write to the file. The content will be less than 100KB in size.",
+							},
+						},
+						"required": []string{"file_path", "content"},
+					},
+				},
+			},
+		},
 	}
 
 	for {
@@ -215,48 +299,49 @@ func main() {
 			return
 		}
 
-		args := messg.ToolCalls[0].Function.Arguments
+		for _, toolCall := range messg.ToolCalls {
+			args := toolCall.Function.Arguments
+			name := toolCall.Function.Name
 
-		var readArgs ReadArgs
+			toolFunc, ok := toolFuncMap[name]
+			if !ok {
+				fmt.Fprintf(os.Stderr, "error: unknown tool %s\n", name)
+				return
+			}
 
-		err = json.Unmarshal([]byte(args), &readArgs)
-		if err != nil {
-			log.Fatal("Error parsing arguments: ", err)
-		}
+			content, err := toolFunc(args)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error executing tool: %v\n", err)
+				return
+			}
 
-		content, err := Read(readArgs.FilePath)
-		if err != nil {
-			fmt.Println("Error reading file: ", err)
-			return
-		}
-		toolCall := messg.ToolCalls[0]
-
-		messages = append(messages,
-			openai.ChatCompletionMessageParamUnion{
-				OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-					ToolCalls: []openai.ChatCompletionMessageToolCallUnionParam{
-						{
-							OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-								ID: toolCall.ID,
-								Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-									Name:      toolCall.Function.Name,
-									Arguments: toolCall.Function.Arguments,
+			messages = append(messages,
+				openai.ChatCompletionMessageParamUnion{
+					OfAssistant: &openai.ChatCompletionAssistantMessageParam{
+						ToolCalls: []openai.ChatCompletionMessageToolCallUnionParam{
+							{
+								OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+									ID: toolCall.ID,
+									Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+										Name:      toolCall.Function.Name,
+										Arguments: toolCall.Function.Arguments,
+									},
 								},
 							},
 						},
 					},
 				},
-			},
-			openai.ChatCompletionMessageParamUnion{
-				OfTool: &openai.ChatCompletionToolMessageParam{
-					Role:       "tool",
-					ToolCallID: toolCall.ID,
-					Content: openai.ChatCompletionToolMessageParamContentUnion{
-						OfString: openai.String(content),
+				openai.ChatCompletionMessageParamUnion{
+					OfTool: &openai.ChatCompletionToolMessageParam{
+						Role:       "tool",
+						ToolCallID: toolCall.ID,
+						Content: openai.ChatCompletionToolMessageParamContentUnion{
+							OfString: openai.String(content),
+						},
 					},
 				},
-			},
-		)
+			)
+		}
 	}
 }
 
