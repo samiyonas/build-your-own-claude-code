@@ -7,12 +7,34 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
 
 func Read(filePath string) (string, error) {
+	filePath = strings.TrimPrefix(filePath, "/")
+
+	clean := filepath.Clean(filePath)
+	if strings.HasPrefix(clean, "..") {
+		return "", fmt.Errorf("invalid file path")
+	}
+
+	info, err := os.Stat(clean)
+	if err != nil {
+		return "", err
+	}
+
+	if info.IsDir() {
+		return "", fmt.Errorf("file path is a directory")
+	}
+
+	if strings.Contains(filePath, "..") {
+		return "", fmt.Errorf("invalid file path")
+	}
+
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
@@ -204,16 +226,37 @@ func main() {
 
 		content, err := Read(readArgs.FilePath)
 		if err != nil {
-			log.Fatal("Error reading file: ", err)
+			fmt.Println("Error reading file: ", err)
+			return
 		}
+		toolCall := messg.ToolCalls[0]
 
-		messages = append(messages, openai.ChatCompletionMessageParamUnion{
-			OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-				Content: openai.ChatCompletionAssistantMessageParamContentUnion{
-					OfString: openai.String(content),
+		messages = append(messages,
+			openai.ChatCompletionMessageParamUnion{
+				OfAssistant: &openai.ChatCompletionAssistantMessageParam{
+					ToolCalls: []openai.ChatCompletionMessageToolCallUnionParam{
+						{
+							OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+								ID: toolCall.ID,
+								Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+									Name:      toolCall.Function.Name,
+									Arguments: toolCall.Function.Arguments,
+								},
+							},
+						},
+					},
 				},
 			},
-		})
+			openai.ChatCompletionMessageParamUnion{
+				OfTool: &openai.ChatCompletionToolMessageParam{
+					Role:       "tool",
+					ToolCallID: toolCall.ID,
+					Content: openai.ChatCompletionToolMessageParamContentUnion{
+						OfString: openai.String(content),
+					},
+				},
+			},
+		)
 	}
 }
 
