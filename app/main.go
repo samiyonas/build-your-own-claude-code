@@ -42,6 +42,26 @@ func main() {
 					},
 				},
 			},
+			Tools: []openai.ChatCompletionToolUnionParam{
+				{
+					OfFunction: &openai.ChatCompletionFunctionToolParam{
+						Function: openai.FunctionDefinitionParam{
+							Name: "Read",
+							Parameters: openai.FunctionParameters{
+								"type": "object",
+								"properties": map[string]any{
+									"file_path": map[string]any{
+										"type":        "string",
+										"description": "The path to the file to read. The file is guaranteed to be less than 100KB in size.",
+										"examples":    []string{"/tmp/file.txt"},
+									},
+								},
+								"required": []string{"file_path"},
+							},
+						},
+					},
+				},
+			},
 		},
 	)
 	if err != nil {
