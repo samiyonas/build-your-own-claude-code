@@ -21,6 +21,7 @@ func Read(filePath string) (string, error) {
 	return string(file), nil
 }
 
+/*
 func main() {
 	type ReadArgs struct {
 		FilePath string `json:"file_path"`
@@ -114,3 +115,129 @@ func main() {
 	fmt.Println(content)
 	//fmt.Print(resp.Choices[0].Message.Content)
 }
+*/
+
+func main() {
+	type ReadArgs struct {
+		FilePath string `json:"file_path"`
+	}
+
+	var prompt string
+	flag.StringVar(&prompt, "p", "", "Prompt to send to LLM")
+	flag.Parse()
+
+	if prompt == "" {
+		panic("Prompt must not be empty")
+	}
+
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	baseUrl := os.Getenv("OPENROUTER_BASE_URL")
+	if baseUrl == "" {
+		baseUrl = "https://openrouter.ai/api/v1"
+	}
+
+	if apiKey == "" {
+		panic("Env variable OPENROUTER_API_KEY not found")
+	}
+
+	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
+	messages := []openai.ChatCompletionMessageParamUnion{
+		{
+			OfUser: &openai.ChatCompletionUserMessageParam{
+				Content: openai.ChatCompletionUserMessageParamContentUnion{
+					OfString: openai.String(prompt),
+				},
+			},
+		},
+	}
+	tools := []openai.ChatCompletionToolUnionParam{
+		{
+			OfFunction: &openai.ChatCompletionFunctionToolParam{
+				Function: openai.FunctionDefinitionParam{
+					Name: "Read",
+					Parameters: openai.FunctionParameters{
+						"type": "object",
+						"properties": map[string]any{
+							"file_path": map[string]any{
+								"type":        "string",
+								"description": "The path to the file to read. The file is guaranteed to be less than 100KB in size.",
+								"examples":    []string{"/tmp/file.txt"},
+							},
+						},
+						"required": []string{"file_path"},
+					},
+				},
+			},
+		},
+	}
+
+	for {
+		resp, err := client.Chat.Completions.New(context.Background(),
+			openai.ChatCompletionNewParams{
+				Model:    "anthropic/claude-haiku-4.5",
+				Messages: messages,
+				Tools:    tools,
+			},
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		if len(resp.Choices) == 0 {
+			return
+		}
+
+		messg := resp.Choices[0].Message
+		if len(messg.ToolCalls) == 0 {
+			fmt.Println(messg.Content)
+			return
+		}
+
+		args := messg.ToolCalls[0].Function.Arguments
+
+		var readArgs ReadArgs
+
+		err = json.Unmarshal([]byte(args), &readArgs)
+		if err != nil {
+			log.Fatal("Error parsing arguments: ", err)
+		}
+
+		content, err := Read(readArgs.FilePath)
+		if err != nil {
+			log.Fatal("Error reading file: ", err)
+		}
+
+		messages = append(messages, openai.ChatCompletionMessageParamUnion{
+			OfAssistant: &openai.ChatCompletionAssistantMessageParam{
+				Content: openai.ChatCompletionAssistantMessageParamContentUnion{
+					OfString: openai.String(content),
+				},
+			},
+		})
+	}
+}
+
+/*
+{
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_abc123",
+            "type": "function",
+            "function": {
+              "name": "Read",
+              "arguments": "{\"file_path\": \"/path/to/file.txt\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ]
+}
+*/
