@@ -14,11 +14,11 @@ set -e # Exit early if any commands fail
 # - Edit .codecrafters/compile.sh to change how your program compiles remotely
 (
   cd "$(dirname "$0")" # Ensure compile steps are run within the repository directory
-  go build -o /tmp/codecrafters-build-claude-code-go app/*.go
+  go build -o build-your-own-claude-code app/*.go
 )
 
 # Copied from .codecrafters/run.sh
 #
 # - Edit this to change how your program runs locally
 # - Edit .codecrafters/run.sh to change how your program runs remotely
-exec /tmp/codecrafters-build-claude-code-go "$@"
+exec build-your-own-claude-code-go "$@"
