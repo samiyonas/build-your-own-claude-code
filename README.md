@@ -1,34 +1,46 @@
-[![progress-banner](https://backend.codecrafters.io/progress/claude-code/6a081be5-8237-4ff4-8f65-214dbe6d93e0)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Build Your Own Claude Code (Go)
 
-This is a starting point for Go solutions to the
+A small CLI agent written in Go that can call LLMs through OpenRouter and use local tools (like reading files) in an agent loop.
+
+The program sends a prompt to an LLM, allows the model to call tools, executes the tool locally, and feeds the result back to the model until a final answer is produced.
+
+---
+
+## Requirements
+
+- Go 1.21+ (or newer)
+- An OpenRouter API key
+
+---
+
+## Environment Setup (.env)
+
+Create a `.env` file in the root of the project.
+
+```
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+```
+
+---
+
+## Install Dependencies
+
+From the project root:
+
+```bash
+go mod tidy
+```
+
+## Run the Agent
+```
+./your_program -p "Determine in how many months the chemical expires by reading README.md. Respond with only a number."
+```
+
 ["Build Your own Claude Code" Challenge](https://codecrafters.io/challenges/claude-code).
-
-Claude Code is an AI coding assistant that uses Large Language Models (LLMs) to
-understand code and perform actions through tool calls. In this challenge,
-you'll build your own Claude Code from scratch by implementing an LLM-powered
-coding assistant.
 
 Along the way you'll learn about HTTP RESTful APIs, OpenAI-compatible tool
 calling, agent loop, and how to integrate multiple tools into an AI assistant.
 
 **Note**: If you're viewing this repo on GitHub, head over to
 [codecrafters.io](https://codecrafters.io) to try the challenge.
-
-# Passing the first stage
-
-The entry point for your `claude-code` implementation is in `app/main.go`. Study
-and uncomment the relevant code, and submit to pass the first stage:
-
-```sh
-codecrafters submit
-```
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `go (1.25)` installed locally.
-2. Run `./your_program.sh` to run your program, which is implemented in
-   `app/main.go`.
-3. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
-   output will be streamed to your terminal.
